@@ -11,7 +11,7 @@ https://github.com/MitchellSlavik/CSCI3850Project/commits/master
 Compiling Instructions
 1. CD into ./src via "cd ./src"
 2. Run: javac *.java
-3. Run: unzip -q ./src/documentset.zip -d documentset
+3. Run: unzip -q documentset.zip -d documentset
 
 ************
 Running Instructions
