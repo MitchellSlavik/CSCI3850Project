@@ -8,18 +8,23 @@ to check commit contributions please visit:
 https://github.com/MitchellSlavik/CSCI3850Project/commits/master
 
 *************************
+Compiling Instructions
+1. Make sure you are in the directory of the readme.txt
+2. Run: javac ./src/*java
+3. Run: unzip ./src/documentset.zip
 
-How to run the program:
-1.	javac WebSearchProject.java
-2.	java WebSearchProject PATH/TO/FOLDER/
-(stop word file is already in the project directory)
+************
+Running Instructions
+1. CD into src:  cd ./src
+2. Run: java WebSearchProject ./documentset
+3. Enjoy!
 
 *************************
 
 Total expected time for completion:
 
 both our local machine on SSD: 7-8 seconds
-Loki: 35 seconds
+Loki: 25-35 seconds
 
 *************************
 
