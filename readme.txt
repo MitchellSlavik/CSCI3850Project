@@ -9,15 +9,14 @@ https://github.com/MitchellSlavik/CSCI3850Project/commits/master
 
 *************************
 Compiling Instructions
-1. Make sure you are in the directory of the readme.txt
-2. Run: javac ./src/*java
-3. Run: unzip ./src/documentset.zip
+1. CD into ./src via "cd ./src"
+2. Run: javac *.java
+3. Run: unzip -q documentset.zip -d documentset
 
 ************
 Running Instructions
-1. CD into src:  cd ./src
-2. Run: java WebSearchProject ./documentset
-3. Enjoy!
+1. Run: java WebSearchProject ./documentset
+2. Enjoy!
 
 *************************
 
