@@ -18,16 +18,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * WebSearchProject - Phase 0
+ * WebSearchProject - Phase 1
  * 
  * @author Mitchell Slavik
  * @author Colin Krist
  */
 public class WebSearchProject {
   public static TreeSet<String> stopWords = new TreeSet<String>();
-  public static ConcurrentHashMap<String, Object> keywords = new ConcurrentHashMap<String, Object>();
-  public static ConcurrentHashMap<String, Object> cleanedKeywords = new ConcurrentHashMap<String, Object>();
-  public static ConcurrentHashMap<String, Object> stemmedKeywords = new ConcurrentHashMap<String, Object>();
+  public static ConcurrentHashMap<String, Object> tokens = new ConcurrentHashMap<String, Object>();
 
   public static Porter porter = new Porter();
 
@@ -92,13 +90,9 @@ public class WebSearchProject {
     System.out.println("Files processed! (Took " + total + "ms)             "); // space needed to remove progress bar
     System.out.println("");
 
-    // Run analysis on each collection of keywords
     System.out.println("---------------------------");
-    processResult(keywords, "Raw keywords");
-    System.out.println("---------------------------");
-    processResult(cleanedKeywords, "No Stop Words");
-    System.out.println("---------------------------");
-    processResult(stemmedKeywords, "Stemmed Keywords");
+    // printDatabase(tokens);
+    System.out.println(tokens.size());
     System.out.println("---------------------------");
 
     // Show total time taken to execute program
@@ -107,6 +101,23 @@ public class WebSearchProject {
     System.out.println("");
   }
 
+  
+  @SuppressWarnings("unchecked")
+public static void printDatabase(ConcurrentHashMap<String, Object> tokens2) {
+	  for( Entry<String, Object> s: tokens2.entrySet()) {
+		  if( s.getValue() instanceof String) {
+			  System.out.println(s.getKey() + " : " + s.getValue());
+		  } else {
+			  System.out.print(s.getKey() + " { ");
+			  for ( Entry<String, Object> fileName: ((ConcurrentHashMap<String, Object>) s.getValue()).entrySet()) {
+				  System.out.print(fileName.getKey());
+				  System.out.print(fileName.getValue() +", ");
+			  }
+			  System.out.println(" } ");  
+		  }
+	  }
+  }
+  
   /**
    * Takes in the list of words and processes a top 10, bottom 10, and
    * 'meaningful' result from it and pretty prints the findings
@@ -249,49 +260,38 @@ public class WebSearchProject {
       for (String token : rawTokens) {
         if(token.equals("")) continue;
         
-        boolean stopWord = stopWords.contains(token);
+        boolean isStopWord = stopWords.contains(token);
         
-        if (!keywords.containsKey(token)) {
-          // store just the filename first so we don't create more CopyOnWriteArrayLists than we need
-          keywords.put(token, fileName);
-          
-          if(!stopWord) {
-            cleanedKeywords.put(token, fileName);
-          }
-        } else {
-          Object o = keywords.get(token);
-          if(o instanceof String) {
-            CopyOnWriteArrayList<String> arr = new CopyOnWriteArrayList<String>();
-            arr.add((String) o);
-            arr.add(fileName);
-            keywords.put(token, arr);
-            if(!stopWord) {
-              // use the same arraylist as keywords to reduce memory costs
-              cleanedKeywords.put(token, arr);
-            }
-          } else {
-            // Since both keywords and cleanedKeywords hold a reference to the same
-            // arraylist for any overlap and cleanedKeywords is a subset of keywords,
-            // we only need to update keywords and if it is in cleanedKeywords
-            // it will also be updated
-            ((CopyOnWriteArrayList<String>) o).add(fileName);
-          }
-        }
-        
-        if (!stopWord) {
+        if (!isStopWord) {
           // stem + stop word
           String stemmedToken = porter.stripAffixes(token);
-          if (!stemmedKeywords.containsKey(stemmedToken)) {
-            stemmedKeywords.put(stemmedToken, fileName);
+          if (!tokens.containsKey(stemmedToken)) {
+            tokens.put(stemmedToken, fileName);
           } else {
-            Object o = stemmedKeywords.get(stemmedToken);
+            Object o = tokens.get(stemmedToken);
             if(o instanceof String) {
-              CopyOnWriteArrayList<String> arr = new CopyOnWriteArrayList<String>();
-              arr.add((String) o);
-              arr.add(fileName);
-              stemmedKeywords.put(stemmedToken, arr);
+              ConcurrentHashMap<String, CopyOnWriteArrayList<Integer>> documentMap = new ConcurrentHashMap<>();
+              CopyOnWriteArrayList<Integer> i = new CopyOnWriteArrayList<>();
+              i.add(2);
+              documentMap.put(fileName, i);
+              // documentMap.containsKey(fileName));
+              // arr.put(token, );
+              tokens.put(stemmedToken, documentMap);
             } else {
-              ((CopyOnWriteArrayList<String>) o).add(fileName);
+              if(((ConcurrentHashMap<String, CopyOnWriteArrayList<Integer>>) o).containsKey(fileName)) {
+            	  CopyOnWriteArrayList<Integer> totalList = ((ConcurrentHashMap<String, CopyOnWriteArrayList<Integer>>) o).get(fileName);
+            	  Integer total = totalList.get(0);
+            	  totalList.set(0, total+1);
+            	  // ((ConcurrentHashMap<String, CopyOnWriteArrayList<Integer>>) o).remove(fileName);
+            	  ((ConcurrentHashMap<String, CopyOnWriteArrayList<Integer>>) o).put(fileName, totalList);
+            	  
+            	  tokens.put(token, o); // write new data in
+              } else {
+            	  CopyOnWriteArrayList<Integer> total = new CopyOnWriteArrayList<>();
+            	  total.add(1);
+            	  ((ConcurrentHashMap<String, CopyOnWriteArrayList<Integer>>) o).put(fileName, total); // write value in for freq of word in document
+            	  tokens.put(token, o); //write all docs back in for token
+              }
             }
           }
         }
