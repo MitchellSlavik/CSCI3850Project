@@ -26,7 +26,8 @@ import java.util.concurrent.Executors;
 public class WebSearchProject {
   public static TreeSet<String> stopWords = new TreeSet<String>();
   public static ConcurrentHashMap<String, Object> tokens = new ConcurrentHashMap<String, Object>();
-
+  public static ConcurrentHashMap<String, Integer> documentTokenTotals = new ConcurrentHashMap<>();
+  
   public static Porter porter = new Porter();
 
   /**
@@ -92,6 +93,7 @@ public class WebSearchProject {
 
     System.out.println("---------------------------");
     // printDatabase(tokens);
+    System.out.println(documentTokenTotals);
     System.out.println(tokens.size());
     System.out.println("---------------------------");
 
@@ -256,28 +258,39 @@ public static void printDatabase(ConcurrentHashMap<String, Object> tokens2) {
       String content = readFile();
       content = content.replaceAll("</?.*?>", "").replaceAll("[`'\\.!?\\-,]", "").replaceAll("\\s+", " ").toLowerCase();
       String[] rawTokens = content.split(" ");
+      Integer tokenCount = 0;
 
       for (String token : rawTokens) {
         if(token.equals("")) continue;
         
         boolean isStopWord = stopWords.contains(token);
         
-        if (!isStopWord) {
-          // stem + stop word
+        if (!isStopWord) {			// word is not a stop word, count it in total, stem, and insert into dataset
+          tokenCount++;
+        	
           String stemmedToken = porter.stripAffixes(token);
           if (!tokens.containsKey(stemmedToken)) {
-            tokens.put(stemmedToken, fileName);
+            tokens.put(stemmedToken, fileName);			// conserve memory by setting fileName as string
           } else {
             Object o = tokens.get(stemmedToken);
-            if(o instanceof String) {
+            if(o instanceof String) {					// once we find the instance of this token again, convert to hashmap of documents
               ConcurrentHashMap<String, CopyOnWriteArrayList<Integer>> documentMap = new ConcurrentHashMap<>();
               CopyOnWriteArrayList<Integer> i = new CopyOnWriteArrayList<>();
-              i.add(2);
-              documentMap.put(fileName, i);
-              // documentMap.containsKey(fileName));
-              // arr.put(token, );
-              tokens.put(stemmedToken, documentMap);
-            } else {
+              if(o == fileName) {						// if it's the same document again (pretty likely) set hit value to 2
+            	 i.add(2);
+            	 documentMap.put((String) o, i);
+              } else {									// if it's not, add both documents to the hashmap
+            	  i.add(1);	// add the previous doc string into the document list under the token
+            	  documentMap.put((String) o, i);
+
+            	  // add the new document into the doc list under the token
+            	  CopyOnWriteArrayList<Integer> i2 = new CopyOnWriteArrayList<>();
+            	  i2.add(1);
+            	  documentMap.put(fileName, i2);
+              }
+              
+              tokens.put(stemmedToken, documentMap); // overwrite previous docuemntMap with our new one
+            } else {									// if we already have a hashmap of documents, find document ++ freq, else put new fileName in hashmap
               if(((ConcurrentHashMap<String, CopyOnWriteArrayList<Integer>>) o).containsKey(fileName)) {
             	  CopyOnWriteArrayList<Integer> totalList = ((ConcurrentHashMap<String, CopyOnWriteArrayList<Integer>>) o).get(fileName);
             	  Integer total = totalList.get(0);
@@ -296,6 +309,10 @@ public static void printDatabase(ConcurrentHashMap<String, Object> tokens2) {
           }
         }
       }
+      
+      // once loop of tokens is done. add the final count to a 
+      WebSearchProject.documentTokenTotals.put(fileName, tokenCount);
+      
       // Tell the CountDownLatch we are done
       latch.countDown();
     }
