@@ -4,6 +4,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -14,6 +15,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * WebSearchProject - Phase 1
@@ -195,9 +198,23 @@ public class WebSearchProject {
     @SuppressWarnings("unchecked")
     @Override
     public void run() {
-      String content = readFile();
-      content = content.replaceAll("</?.*?>", "").replaceAll("[`'\\.!?\\-,]", "").replaceAll("\\s+", " ").toLowerCase();
-      String[] rawTokens = content.split(" ");
+      String content = readFile().replaceAll("\\s+", " ");
+      
+      // Attempt to find the title in the file, if not found or blank set to fileName
+      Pattern pattern = Pattern.compile(".*?<TITLE>(.*?)</TITLE>.*");
+      Matcher matcher = pattern.matcher(content);
+      String title;
+      if(matcher.matches()) {
+        title = matcher.group(1).trim();
+        
+        if(title.equals("")) {
+          title = fileName;
+        }
+      } else {
+        title = fileName;
+      }
+      
+      String[] rawTokens = content.replaceAll("</?.*?>", "").replaceAll("[`'\\.!?\\-,]", "").toLowerCase().split(" ");
       Integer tokenCount = 0;
 
       for (String token : rawTokens) {
@@ -209,26 +226,26 @@ public class WebSearchProject {
 
           String stemmedToken = porter.stripAffixes(token);
           if (!tokens.containsKey(stemmedToken)) {
-            tokens.put(stemmedToken, fileName); // conserve memory by setting fileName as string
+            tokens.put(stemmedToken, title); // conserve memory by setting fileName as string
           } else {
             Object o = tokens.get(stemmedToken);
             if (o instanceof String) { // once we find the instance of this token again, convert to hashmap of documents
               ConcurrentHashMap<String, Integer> documentMap = new ConcurrentHashMap<>();
 
-              if (o.equals(fileName)) {
+              if (o.equals(title)) {
                 documentMap.put((String) o, 2);
               } else {
                 documentMap.put((String) o, 1);
-                documentMap.put(fileName, 1);
+                documentMap.put(title, 1);
               }
 
               tokens.put(stemmedToken, documentMap); // overwrite previous docuemntMap with our new one
             } else { // if we already have a hashmap of documents, find document ++ freq, else put new fileName in hashmap
               ConcurrentHashMap<String, Integer> map = (ConcurrentHashMap<String, Integer>) o;
-              if (map.containsKey(fileName)) {
-                map.put(fileName, map.get(fileName) + 1);
+              if (map.containsKey(title)) {
+                map.put(title, map.get(title) + 1);
               } else {
-                map.put(fileName, 1);
+                map.put(title, 1);
               }
             }
           }
@@ -236,7 +253,7 @@ public class WebSearchProject {
       }
 
       // once loop of tokens is done. add the final count to a 
-      documentTokenTotals.put(fileName, tokenCount);
+      documentTokenTotals.put(title, tokenCount);
 
       // Tell the CountDownLatch we are done
       latch.countDown();
@@ -244,22 +261,42 @@ public class WebSearchProject {
 
   }
 
+  /**
+   * Class that handles processing a single query
+   */
   public static class QueryProcessingRunner implements Runnable {
     private String query;
 
+    /**
+     * Construct a QueryProcessingRunner
+     * 
+     * @param String
+     *          query - The query to be processed
+     */
     public QueryProcessingRunner(String query) {
       this.query = query;
     }
 
+    /**
+     * Called by the ExecutorService when a thread is ready, parses the query
+     * and compiles the results
+     */
     @SuppressWarnings("unchecked")
     @Override
     public void run() {
       String[] queryTerms = query.split(" ");
+      ArrayList<String> stemmedTerms = new ArrayList<String>();
 
       Set<String> documents = new HashSet<String>();
 
       for (String term : queryTerms) {
-        String stemmedTerm = porter.stripAffixes(term);
+        if(stopWords.contains(term.toLowerCase())) {
+          continue;
+        }
+        
+        String stemmedTerm = porter.stripAffixes(term.toLowerCase());
+        
+        stemmedTerms.add(stemmedTerm);
 
         Object o = tokens.get(stemmedTerm);
         if (o != null) {
@@ -276,8 +313,7 @@ public class WebSearchProject {
 
       for (String doc : documents) {
         int matching = 0;
-        for (String term : queryTerms) {
-          String stemmedTerm = porter.stripAffixes(term);
+        for (String stemmedTerm : stemmedTerms) {
           Object o = tokens.get(stemmedTerm);
 
           if (o instanceof String) {
@@ -307,23 +343,23 @@ public class WebSearchProject {
 
       System.out.println("---------------------------");
       System.out.println("Query: " + query);
-      System.out.println("Top 10 Results (in decending order):");
+      System.out.println("Top 10 Results:");
 
-      int i = 0;
+      int i = 1;
       Ranking curr = null;
-      while (i < 10 && (curr = rankings.pollLast()) != null) {
-        System.out.print(curr.getDoc() + ", ");
+      while (i < 11 && (curr = rankings.pollLast()) != null) {
+        System.out.println(i + ": " + curr.getDoc());
         i++;
       }
-
-      System.out.println();
 
       printLock.release();
     }
   }
-
+  
+  /**
+   * Class that helps in sorting of rankings of documents
+   */
   public static class Ranking implements Comparable<Ranking> {
-
     private String doc;
     private Double rankingValue;
 
