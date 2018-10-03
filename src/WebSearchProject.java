@@ -110,7 +110,7 @@ public class WebSearchProject {
     } catch (InterruptedException e) {
       e.printStackTrace();
     }
-    
+
     //printDatabase(tokens);
     System.out.println("---------------------------");
 
@@ -199,21 +199,21 @@ public class WebSearchProject {
     @Override
     public void run() {
       String content = readFile().replaceAll("\\s+", " ");
-      
+
       // Attempt to find the title in the file, if not found or blank set to fileName
       Pattern pattern = Pattern.compile(".*?<TITLE>(.*?)</TITLE>.*");
       Matcher matcher = pattern.matcher(content);
       String title;
-      if(matcher.matches()) {
+      if (matcher.matches()) {
         title = matcher.group(1).trim();
-        
-        if(title.equals("")) {
+
+        if (title.equals("")) {
           title = fileName;
         }
       } else {
         title = fileName;
       }
-      
+
       String[] rawTokens = content.replaceAll("</?.*?>", "").replaceAll("[`'\\.!?\\-,]", "").toLowerCase().split(" ");
       Integer tokenCount = 0;
 
@@ -278,24 +278,24 @@ public class WebSearchProject {
     }
 
     /**
-     * Called by the ExecutorService when a thread is ready, parses the query
-     * and compiles the results
+     * Called by the ExecutorService when a thread is ready, parses the query and
+     * compiles the results
      */
     @SuppressWarnings("unchecked")
     @Override
     public void run() {
-      String[] queryTerms = query.split(" ");
+      String[] queryTerms = query.replaceAll("[`'\\.!?\\-,]", "").toLowerCase().split(" ");
       ArrayList<String> stemmedTerms = new ArrayList<String>();
 
       Set<String> documents = new HashSet<String>();
 
       for (String term : queryTerms) {
-        if(stopWords.contains(term.toLowerCase())) {
+        if (stopWords.contains(term.toLowerCase())) {
           continue;
         }
-        
+
         String stemmedTerm = porter.stripAffixes(term.toLowerCase());
-        
+
         stemmedTerms.add(stemmedTerm);
 
         Object o = tokens.get(stemmedTerm);
@@ -316,14 +316,16 @@ public class WebSearchProject {
         for (String stemmedTerm : stemmedTerms) {
           Object o = tokens.get(stemmedTerm);
 
-          if (o instanceof String) {
-            if (o.equals(doc)) {
-              matching++;
-            }
-          } else {
-            ConcurrentHashMap<String, Integer> docMap = (ConcurrentHashMap<String, Integer>) o;
-            if (docMap.containsKey(doc)) {
-              matching += docMap.get(doc);
+          if (o != null) {
+            if (o instanceof String) {
+              if (o.equals(doc)) {
+                matching++;
+              }
+            } else {
+              ConcurrentHashMap<String, Integer> docMap = (ConcurrentHashMap<String, Integer>) o;
+              if (docMap.containsKey(doc)) {
+                matching += docMap.get(doc);
+              }
             }
           }
         }
@@ -355,7 +357,7 @@ public class WebSearchProject {
       printLock.release();
     }
   }
-  
+
   /**
    * Class that helps in sorting of rankings of documents
    */
