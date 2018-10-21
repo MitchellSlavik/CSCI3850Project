@@ -6,7 +6,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
@@ -65,7 +64,16 @@ public class WebSearchProject {
 
     // Get all files
     File[] files = new File(args[0]).listFiles();
-    int numFiles = files.length;
+    int numFiles = 0;
+    
+    if(files != null) {
+      numFiles = files.length;
+    }
+    
+    if(numFiles == 0) {
+      System.out.println("Empty document set!");
+      return;
+    }
 
     // Start thread pool for processing files
     CountDownLatch latch = new CountDownLatch(numFiles);
@@ -94,10 +102,11 @@ public class WebSearchProject {
 
     try {
       reader = new BufferedReader(new FileReader(new File(args[1])));
-      String line = reader.readLine();
-      while (line != null) {
-        es.execute(new QueryProcessingRunner(line));
-        line = reader.readLine();
+      String line;
+      while ((line = reader.readLine()) != null) {
+        if(!line.trim().equals("")) {
+          es.execute(new QueryProcessingRunner(line));
+        }
       }
       reader.close();
     } catch (IOException e) {
@@ -111,7 +120,6 @@ public class WebSearchProject {
       e.printStackTrace();
     }
 
-    //printDatabase(tokens);
     System.out.println("---------------------------");
 
     // Show total time taken to execute program
@@ -119,23 +127,7 @@ public class WebSearchProject {
     System.out.println("Program complete! (Took " + total + "ms)");
     System.out.println("");
   }
-
-  @SuppressWarnings("unchecked")
-  public static void printDatabase(ConcurrentHashMap<String, Object> tokens2) {
-    for (Entry<String, Object> s : tokens2.entrySet()) {
-      if (s.getValue() instanceof String) {
-        System.out.println(s.getKey() + " : " + s.getValue());
-      } else {
-        System.out.print(s.getKey() + " { ");
-        for (Entry<String, Integer> fileName : ((ConcurrentHashMap<String, Integer>) s.getValue()).entrySet()) {
-          System.out.print(fileName.getKey() + " ");
-          System.out.print(fileName.getValue() + ", ");
-        }
-        System.out.println(" } ");
-      }
-    }
-  }
-
+  
   /**
    * Takes in a double (0-1) to indicate in the console the progress of an
    * operation
